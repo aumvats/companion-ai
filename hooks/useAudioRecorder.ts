@@ -7,20 +7,23 @@ interface UseAudioRecorderReturn {
   isRecording: boolean;
   audioBlob: Blob | null;
   error: string | null;
+  stream: MediaStream | null;
   startRecording: () => Promise<void>;
-  stopRecording: () => void;
+  stopRecording: () => Promise<Blob | null>;
   clearAudio: () => void;
-  transcribeAudio: () => Promise<string | null>;
+  transcribeAudio: (blob?: Blob) => Promise<string | null>;
 }
 
 export function useAudioRecorder(): UseAudioRecorderReturn {
   const [isRecording, setIsRecording] = useState(false);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const streamRef = useRef<MediaStream | null>(null);
+  const stopResolveRef = useRef<((blob: Blob | null) => void) | null>(null);
 
   const getSupportedMimeType = useCallback((): string => {
     for (const mimeType of AUDIO_CONFIG.MIME_TYPES) {
@@ -42,14 +45,15 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       }
 
       // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia(
+      const mediaStream = await navigator.mediaDevices.getUserMedia(
         AUDIO_CONFIG.CONSTRAINTS
       );
 
-      streamRef.current = stream;
+      streamRef.current = mediaStream;
+      setStream(mediaStream);
 
       const mimeType = getSupportedMimeType();
-      const mediaRecorder = new MediaRecorder(stream, {
+      const mediaRecorder = new MediaRecorder(mediaStream, {
         mimeType,
       });
 
@@ -69,12 +73,20 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
           streamRef.current.getTracks().forEach((track) => track.stop());
           streamRef.current = null;
         }
+        setStream(null);
+
+        // Resolve the stop promise with the blob
+        if (stopResolveRef.current) {
+          stopResolveRef.current(blob);
+          stopResolveRef.current = null;
+        }
       };
 
       mediaRecorder.onerror = (event) => {
         console.error('MediaRecorder error:', event);
         setError('रिकॉर्डिंग में समस्या हुई');
         setIsRecording(false);
+        setStream(null);
       };
 
       mediaRecorderRef.current = mediaRecorder;
@@ -94,22 +106,29 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
         setError('रिकॉर्डिंग शुरू नहीं हो सकी');
       }
       setIsRecording(false);
+      setStream(null);
     }
   }, [getSupportedMimeType]);
 
-  const stopRecording = useCallback(() => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-    }
-  }, [isRecording]);
+  const stopRecording = useCallback((): Promise<Blob | null> => {
+    return new Promise((resolve) => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+        stopResolveRef.current = resolve;
+        mediaRecorderRef.current.stop();
+      } else {
+        resolve(null);
+      }
+    });
+  }, []);
 
   const clearAudio = useCallback(() => {
     setAudioBlob(null);
     chunksRef.current = [];
   }, []);
 
-  const transcribeAudio = useCallback(async (): Promise<string | null> => {
-    if (!audioBlob) {
+  const transcribeAudio = useCallback(async (blob?: Blob): Promise<string | null> => {
+    const audioData = blob || audioBlob;
+    if (!audioData) {
       setError('कोई ऑडियो नहीं है');
       return null;
     }
@@ -118,7 +137,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
       setError(null);
 
       const formData = new FormData();
-      formData.append('audio', audioBlob, 'recording.webm');
+      formData.append('audio', audioData, 'recording.webm');
 
       const response = await fetch('/api/stt', {
         method: 'POST',
@@ -147,6 +166,7 @@ export function useAudioRecorder(): UseAudioRecorderReturn {
     isRecording,
     audioBlob,
     error,
+    stream,
     startRecording,
     stopRecording,
     clearAudio,

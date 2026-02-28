@@ -4,8 +4,8 @@
   "description": "Your companion for delivery riders",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#FFF7ED",
-  "theme_color": "#F97316",
+  "background_color": "#FFFFFF",
+  "theme_color": "#E8332A",
   "orientation": "portrait",
   "icons": [
     {

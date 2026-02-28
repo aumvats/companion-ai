@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Noto_Sans_Devanagari } from "next/font/google";
 import "./globals.css";
 
@@ -8,17 +8,19 @@ const notoSansDevanagari = Noto_Sans_Devanagari({
   variable: "--font-noto-sans",
 });
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+  themeColor: "#E8332A",
+};
+
 export const metadata: Metadata = {
   title: "Saathi - आपकी दोस्त",
   description: "Your companion for delivery riders - हमेशा आपके साथ",
   manifest: "/manifest.json",
-  viewport: {
-    width: "device-width",
-    initialScale: 1,
-    maximumScale: 1,
-    userScalable: false,
-  },
-  themeColor: "#F97316",
 };
 
 export default function RootLayout({

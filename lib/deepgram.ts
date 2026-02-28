@@ -15,7 +15,7 @@ export async function transcribeAudio(audioBuffer: Buffer, mimeType?: string): P
           'Authorization': `Token ${process.env.DEEPGRAM_API_KEY}`,
           'Content-Type': mimeType || 'audio/webm',
         },
-        body: audioBuffer,
+        body: new Uint8Array(audioBuffer),
       }
     );
 
